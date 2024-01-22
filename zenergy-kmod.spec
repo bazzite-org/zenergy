@@ -6,9 +6,9 @@
 Name:     zenergy-kmod
 Version:  {{{ git_dir_version }}}
 Release:  1%{?dist}
-Summary:  BMI260 IMU Linux driver
+Summary:  Exposes the energy counters that are reported via the Running Average Power Limit (RAPL) Model-specific Registers (MSRs) via the hardware monitor (HWMON) sysfs interface.
 License:  GPLv2
-URL:      https://github.com/KyleGospo/zenergy
+URL:      https://github.com/BoukeHaarsma23/zenergy
 
 Source:   %{url}/archive/refs/heads/master.tar.gz
 
@@ -17,7 +17,7 @@ BuildRequires: kmodtool
 %{expand:%(kmodtool --target %{_target_cpu} --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null) }
 
 %description
-This is a kernel module driver for the Bosch BMI260 IMU. This module is based off of the existing kernel BMI160 implementation. The 260 appears to follow the same specifications as the 270, or close enough to work at least.
+Based on AMD_ENERGY driver, but with some jiffies added so non-root users can read it safely. Exposes the energy counters that are reported via the Running Average Power Limit (RAPL) Model-specific Registers (MSRs) via the hardware monitor (HWMON) sysfs interface.
 
 %prep
 # error out if there was something wrong with kmodtool
