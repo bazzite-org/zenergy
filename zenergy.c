@@ -24,6 +24,7 @@
 #include <linux/slab.h>
 #include <linux/topology.h>
 #include <linux/types.h>
+#include <linux/version.h>
 
 #define DRV_MODULE_DESCRIPTION	"AMD energy driver"
 #define DRV_MODULE_VERSION	"1.0"
@@ -207,12 +208,16 @@ static int amd_create_sensor(struct device *dev,
 			     enum hwmon_sensor_types type, u32 config)
 {
 	struct hwmon_channel_info *info = &data->energy_info;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0)
 	struct cpuinfo_x86 *c = &boot_cpu_data;
+	int num_siblings;
+#endif
 	struct sensor_accumulator *accums;
-	int i, num_siblings, cpus, sockets;
+	int i, cpus, sockets;
 	u32 *s_config;
 	char (*label_l)[10];
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0)
 	/* Identify the number of siblings per core */
 	num_siblings = ((cpuid_ebx(0x8000001e) >> 8) & 0xff) + 1;
 
@@ -223,10 +228,16 @@ static int amd_create_sensor(struct device *dev,
 	cpus = num_present_cpus() / num_siblings;
 
 	/*
-	 * c->x86_max_cores is the linux count of physical cores
+	 * topology_num_cores_per_package (or c->x86_max_cores prior to 6.9) is
+	 * the linux count of physical cores.
 	 * total physical cores/ core per socket gives total number of sockets.
 	 */
+
 	sockets = cpus / c->x86_max_cores;
+#else
+	cpus = num_present_cpus() / __max_threads_per_core;
+	sockets = cpus / topology_num_cores_per_package();
+#endif
 
 	s_config = devm_kcalloc(dev, cpus + sockets + 1,
 				sizeof(u32), GFP_KERNEL);
@@ -279,7 +290,8 @@ static const struct x86_cpu_id bit32_rapl_cpus[] = {
 	X86_MATCH_VENDOR_FAM_MODEL(AMD, 0x19, 0x50, NULL),	/* Cezanne */
 	X86_MATCH_VENDOR_FAM_MODEL(AMD, 0x19, 0x44, NULL),	/* Rembrandt */
 	X86_MATCH_VENDOR_FAM_MODEL(AMD, 0x19, 0x60, NULL),	/* Rembrandt */
-	X86_MATCH_VENDOR_FAM_MODEL(AMD, 0x19, 0x61, NULL),	/* Zen 4 */
+	// Zen4 (0x19, 0x61) features 64-bit registers for both Core::X86::Msr::CORE_ENERGY_STAT & L3::L3CT::L3PackageEnergyStatus),
+	// c.f., https://www.amd.com/content/dam/amd/en/documents/processor-tech-docs/programmer-references/56713-B1_3_05.zip
 	{}
 };
 
@@ -329,6 +341,7 @@ static int zenergy_probe(struct platform_device *pdev)
 	 */
 	if (!x86_match_cpu(bit32_rapl_cpus)) {
 		data->do_not_accum = true;
+		pr_info("CPU supports 64-bit RAPL MSR registers\n");
 		return 0;
 	}
 
