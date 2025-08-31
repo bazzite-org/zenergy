@@ -80,7 +80,11 @@ static void get_energy_units(struct zenergy_data *data)
 {
 	u64 rapl_units;
 
+#if KERNEL_VERSION(6, 16, 0) <= LINUX_VERSION_CODE
+	rdmsrq_safe(ENERGY_PWR_UNIT_MSR, &rapl_units);
+#else
 	rdmsrl_safe(ENERGY_PWR_UNIT_MSR, &rapl_units);
+#endif
 	data->energy_units = (rapl_units & zenergy_UNIT_MASK) >> 8;
 }
 
@@ -89,7 +93,11 @@ static void __accumulate_delta(struct sensor_accumulator *accum,
 {
 	u64 input;
 
+#if KERNEL_VERSION(6, 16, 0) <= LINUX_VERSION_CODE
+	rdmsrq_safe_on_cpu(cpu, reg, &input);
+#else
 	rdmsrl_safe_on_cpu(cpu, reg, &input);
+#endif
 	input &= zenergy_MASK;
 
 	if (input >= accum->prev_value)
